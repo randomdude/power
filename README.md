@@ -1,14 +1,13 @@
 power
 =====
 
-Power meter monitoring directly on the Pi using Open Energy Monitor and an LDR
+Power meter monitoring directly on the Pi using just an LDR. Add your own monitoring system (I used Zabbix).
 
-I've forked this from yfory's power meter: https://github.com/yfory/power
+I've forked this from https://github.com/kieranc/power, which in turn was forked from https://github.com/yfory/power .
 
-His uses a capacitor/resistor for the LDR, I use a transistor based circuit instead to provide a digital on/off signal.
-His version also writes values to an SQLite database and graphs them itself, this does not.
+Kieranc's code interfaces to a larger system - "Open Energy Monitor". If that's what you need to do, I suggest you check his code.
 
-If these features are useful to you, I suggest you check his code.
+I've used the electronics from Kieranc's project. There's a transistor based circuit which provides a digital on/off signal.
 
 # Requirements
 * Raspberry Pi
@@ -21,8 +20,6 @@ If these features are useful to you, I suggest you check his code.
 
 Modern electricity meters have a blinking/flashing LED, often with small text that reads 1000 Imp/kWh. The two important things here are that you have a blinking LED, and that you know the number e.g. 800. Without these, this project will not work for you.
 
-This code is set up for 1000 Imp/kWh, the value of 60 on line 65 sets this. 72 should work for 800 Imp/kWh or 30 for 2000 Imp/kWh.
-
 This project uses the LDR as one half of a voltage divider to trigger a transistor which is connected to a GPIO pin on the Pi.
 
 The circuit is documented here: http://pyevolve.sourceforge.net/wordpress/?p=2383
@@ -30,20 +27,6 @@ The circuit is documented here: http://pyevolve.sourceforge.net/wordpress/?p=238
 I used a 1k resistor between base and ground to make it more sensitive and later a 2k2 potentiometer in its place to provide some adjustment but I've not had to adjust it. 1k should be fine.
 
 # Software Installation
-On your Raspberry Pi, you will need to ensure that you have certain Python related files installed. To make sure, type the following commands...
-
-```bash
-sudo apt-get install python-dev python-pip
-sudo pip install apscheduler
-```
-
-The above installs the advanced python scheduler used by the code.
-Now you will want to download the files from this github repository. To do so, type the following commands...
-
-```bash
-sudo apt-get install git
-git clone https://github.com/kieranc/power.git && cd power
-```
 
 The file named power-monitor is used to automatically start the data logging process on boot and stop on shutdown. For testing purposes, you do not need this script. However, you should make use of it if you are setting up a more permanent solution.
 
@@ -53,31 +36,24 @@ sudo chmod a+x /etc/init.d/power-monitor
 sudo update-rc.d power-monitor defaults
 ```
 
-**Note:** Be sure to check the power-monitor file to make sure that the path to the Python application, monitor.py, matches with the path on your system. For example, /home/pi/power/power.py
-
-Due to Python's inability to respond to an interrupt, I've used a very simple C app to listen for an interrupt triggered when the LDR detects a pulse. Monitor.py counts these pulses and each minute, creates a power reading in watts which it sends to EmonCMS' API.
-I'm not much of a coder so a lot of the code is borrowed from other people, I've included all sources as far as I'm aware.
-The C app came from Radek "Mrkva" Pilar on the raspberrypi.org forums: http://www.raspberrypi.org/phpBB3/viewtopic.php?f=44&t=7509
-This app will need compiling like so:
+The application will count for interrupts on the specified GPIO pin. This number is then exposed via TCP port 1001, and reset to zero on each successful TCP send.
 
 ```bash
-gcc gpio-irq-demo.c -o gpio-irq
+gcc gpio-irq-demo.c -o gpio-irq -lpthreads
 ```
 
-Put it somewhere accessible - I used /usr/local/bin, this will need modifying at the bottom of monitor.py if you put it somewhere else.
+Put it somewhere accessible - I used /bin.
 
-Once all this is done you can start the data logging process...
+Once all this is done you can start the process...
 
 ```bash
 sudo /etc/init.d/power-monitor start
 ```
 
-This script is configure only to submit its output to the EmonCMS API.
-You can read how to set up EmonCMS on the Pi here: http://openenergymonitor.org/emon/emoncms/installing-ubuntu-debian-pi
-Once you have set up EmonCMS you will need to get your API key and put it in monitor.py, line 69.
-After that you'll need to tell EmonCMS what to do with the data - I'm not entirely clear on this bit myself yet but if you set it 
-just to log to feed you can see easily if it's receiving data. Alternatively, check the web server access logs for API requests
-which should happen every minute.
+You can test it easily with nc, which should return some number.
+```bash
+nc localhost 1001
+```
 
 
 # License
